@@ -2,7 +2,9 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required
-from .forms import LoginForm, UserRegistrationForm
+from .forms import LoginForm, UserRegistrationForm, UserEditForm, ProfileEditForm
+from .models import Profile
+from django.contrib import messages
 
 # Create your views here.
 
@@ -40,11 +42,29 @@ def reg(request):
             new_user = user_form.save(commit=False)
             # Set the chosen password
             new_user.set_password(user_form.cleaned_data['password'])
-            # Save the User object
             new_user.save()
+            profile = Profile.objects.create(user=new_user)
             print('If True')
             return HttpResponseRedirect('/')
     else:
         user_form = UserRegistrationForm()
     return render(request, 'accounts/register.html', {'user_form': user_form})
 
+
+@login_required
+def edit(request):
+    if request.method == 'POST':
+        user_form = UserEditForm(instance=request.user, data=request.POST)
+        profile_form = ProfileEditForm(instance=request.user.profile, data=request.POST, files=request.FILES)
+        if user_form.is_valid() and profile_form.is_valid():
+            user_form.save()
+            profile_form.save()
+            messages.success(request, 'Profile updated successfully')
+            return HttpResponseRedirect('/edit/')
+    else:
+        user_form = UserEditForm(instance=request.user)
+        profile_form = ProfileEditForm(instance=request.user.profile)
+        context = {'user_form': user_form, 'profile_form': profile_form}
+        return render(request,
+                      'accounts/edit.html',
+                      context)
